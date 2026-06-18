@@ -1,0 +1,56 @@
+services:
+  compreface-postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: compreface
+      POSTGRES_PASSWORD: compreface
+      POSTGRES_DB: compreface
+    volumes:
+      - compreface-db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  compreface-admin:
+    image: exadel/compreface-admin:1.2.0
+    environment:
+      POSTGRES_USER: compreface
+      POSTGRES_PASSWORD: compreface
+      POSTGRES_URL: jdbc:postgresql://compreface-postgres:5432/compreface
+      ADMIN_JAVA_OPTS: -Xmx2g
+    depends_on:
+      - compreface-postgres
+    restart: unless-stopped
+
+  compreface-api:
+    image: exadel/compreface-api:1.2.0
+    ports:
+      - "8000:8080"
+    environment:
+      POSTGRES_USER: compreface
+      POSTGRES_PASSWORD: compreface
+      POSTGRES_URL: jdbc:postgresql://compreface-postgres:5432/compreface
+      API_JAVA_OPTS: -Xmx2g
+    depends_on:
+      - compreface-postgres
+      - compreface-admin
+    restart: unless-stopped
+
+  compreface-core:
+    image: exadel/compreface-core:1.2.0
+    environment:
+      POSTGRES_USER: compreface
+      POSTGRES_PASSWORD: compreface
+      POSTGRES_URL: jdbc:postgresql://compreface-postgres:5432/compreface
+      CORE_JAVA_OPTS: -Xmx2g
+    depends_on:
+      - compreface-postgres
+      - compreface-admin
+    restart: unless-stopped
+
+  nudenet:
+    build: ./services/nudenet
+    ports:
+      - "5001:5001"
+    restart: unless-stopped
+
+volumes:
+  compreface-db:

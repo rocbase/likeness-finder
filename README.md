@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Likeness Finder
 
-## Getting Started
+Mac-first web dashboard to upload your face, run multi-source searches, and sort every photo of your likeness into **Good**, **Neutral**, **Bad**, and **NSFW**.
 
-First, run the development server:
+## Two cost tiers
+
+| Tier | Per scan | ~Monthly (10 scans) | Best for |
+|------|----------|----------------------|----------|
+| **Budget** | $0–0.02 | $0–5 | Paste URLs you found, local face verify + NSFW scoring |
+| **Full deep** | $6–12 | $65–115 | FaceCheck + Lens + Yandex + AI + deep crawl |
+
+### Budget tier (~$0)
+
+Uses only free local services plus optional **one** SerpAPI Google Lens call per scan:
+
+- CompreFace face verification (Docker, free)
+- NudeNet NSFW detection (Docker, free)
+- Heuristic classification (no OpenAI)
+- Paste URLs to verify & classify
+- Optional: `SERPAPI_KEY` for 1 Lens search (~$0.01/scan)
+
+Open the budget UI at [/budget](http://localhost:3000/budget) or select **Budget** on the main dashboard.
+
+### Full tier (~$65–115/mo)
+
+- FaceCheck API (incl. adult indexes)
+- SerpAPI Google Lens + Yandex Images
+- Deep web crawl
+- GPT-4o vision classification
+
+## Quick start
 
 ```bash
+npm install
+docker compose up -d   # CompreFace + NudeNet (free, needed for budget tier)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Demo mode works without API keys.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.local.example .env.local
+```
 
-## Learn More
+| Variable | Budget | Full |
+|----------|--------|------|
+| `DEMO_MODE` | optional | optional |
+| `COMPREFACE_URL` | recommended | recommended |
+| `NUDENET_URL` | recommended | recommended |
+| `SERPAPI_KEY` | optional (1 Lens/scan) | required |
+| `FACECHECK_API_KEY` | — | required |
+| `OPENAI_API_KEY` | — | recommended |
+| `YANDEX_SEARCH_API_KEY` | — | optional |
 
-To learn more about Next.js, take a look at the following resources:
+## Flow
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Upload 1–3 reference face photos
+2. Choose **Budget** or **Full deep** tier
+3. Confirm consent (+ 18+ for adult indexes on full tier)
+4. Budget: paste URLs to check · Full: enable deep crawl
+5. Review tabs: All · Good · Neutral · Bad · NSFW (blurred)
+6. Export Good photos as ZIP
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Privacy
 
-## Deploy on Vercel
+- Face data stored locally in `.data/`
+- NSFW blurred by default
+- Personal use only
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Repo
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+https://github.com/rocbase/likeness-finder
