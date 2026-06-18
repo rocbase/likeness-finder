@@ -52,5 +52,30 @@ services:
       - "5001:5001"
     restart: unless-stopped
 
+  # Full stack — enable with: docker compose --profile full up -d --build
+  app:
+    profiles: ["full"]
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DEMO_MODE: ${DEMO_MODE:-true}
+      COMPREFACE_URL: http://compreface-api:8080
+      COMPREFACE_API_KEY: ${COMPREFACE_API_KEY:-}
+      NUDENET_URL: http://nudenet:5001
+      NUDENET_ENABLED: "true"
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      FACECHECK_API_KEY: ${FACECHECK_API_KEY:-}
+      SERPAPI_KEY: ${SERPAPI_KEY:-}
+      YANDEX_SEARCH_API_KEY: ${YANDEX_SEARCH_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - app-data:/app/.data
+    depends_on:
+      - compreface-api
+      - nudenet
+    restart: unless-stopped
+
 volumes:
   compreface-db:
+  app-data:

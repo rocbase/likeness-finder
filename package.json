@@ -6,6 +6,10 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "services": "docker compose up -d",
+    "docker:up": "docker compose up -d",
+    "docker:full": "docker compose --profile full up -d --build",
+    "docker:down": "docker compose --profile full down",
+    "docker:logs": "docker compose --profile full logs -f app",
     "start": "next start",
     "lint": "eslint"
   },
