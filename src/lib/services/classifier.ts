@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { hasOpenAI } from "@/lib/env";
 import type { Classification, NsfwSeverity, NsfwType } from "@/lib/types";
+import { isAdultSite } from "@/lib/adult-sites";
 import type { NudeNetScores } from "@/lib/services/nudenet";
 
 export interface ClassificationResult {
@@ -20,16 +21,55 @@ export async function classifyResult(input: {
   includeAdultContext: boolean;
   thumbnailBase64?: string;
   budgetMode?: boolean;
+  nsfwOnlyMode?: boolean;
 }): Promise<ClassificationResult> {
+  let result: ClassificationResult;
+
   if (!input.budgetMode && hasOpenAI() && input.thumbnailBase64) {
     try {
-      return await classifyWithOpenAI(input);
+      result = await classifyWithOpenAI(input);
     } catch {
-      // fall through to heuristic
+      result = classifyHeuristic(input);
     }
+  } else {
+    result = classifyHeuristic(input);
   }
 
-  return classifyHeuristic(input);
+  if (input.nsfwOnlyMode && isAdultSite(input.sourceUrl)) {
+    return applyNsfwOnlyBias(result, input);
+  }
+
+  return result;
+}
+
+function applyNsfwOnlyBias(
+  result: ClassificationResult,
+  input: { sourceUrl: string; nudenet?: NudeNetScores | null }
+): ClassificationResult {
+  if (result.blockedCsam || result.classification === "nsfw") return result;
+
+  const explicit = input.nudenet?.explicit ?? 0;
+  const suggestive = input.nudenet?.suggestive ?? 0;
+
+  if (explicit > 0.35 || suggestive > 0.45) {
+    return {
+      classification: "nsfw",
+      reason: "Adult-site match with elevated NSFW score.",
+      nsfwType: explicit > 0.5 ? "explicit" : "suggestive",
+      nsfwSeverity: explicit > 0.7 ? "high" : "medium",
+      blockedCsam: false,
+      deepfakeSuspected: /deepfake/i.test(input.sourceUrl),
+    };
+  }
+
+  return {
+    classification: "nsfw",
+    reason: "Face match on restricted adult site or image board.",
+    nsfwType: "suggestive",
+    nsfwSeverity: "medium",
+    blockedCsam: false,
+    deepfakeSuspected: /deepfake/i.test(input.sourceUrl),
+  };
 }
 
 async function classifyWithOpenAI(input: {

@@ -1,3 +1,4 @@
+import { isAdultSite } from "@/lib/adult-sites";
 import type { SearchCandidate } from "@/lib/types";
 
 const ADULT_DOMAINS = /porn|xxx|adult|nsfw|tube|imageboard|leak/i;
@@ -35,6 +36,17 @@ export async function deepCrawl(
   return found;
 }
 
+/** Deep crawl restricted to adult/porn domains only. */
+export async function deepCrawlNsfwOnly(
+  seeds: SearchCandidate[],
+  maxHops = 1
+): Promise<SearchCandidate[]> {
+  const adultSeeds = seeds.filter((s) => isAdultSite(s.url));
+  return deepCrawl(adultSeeds, true, maxHops).then((found) =>
+    found.filter((item) => isAdultSite(item.url))
+  );
+}
+
 async function fetchRelatedUrls(pageUrl: string, includeAdult: boolean): Promise<string[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
@@ -50,7 +62,7 @@ async function fetchRelatedUrls(pageUrl: string, includeAdult: boolean): Promise
     const links = extractLinks(html, pageUrl);
     return links.filter((link) => {
       if (!includeAdult && ADULT_DOMAINS.test(link)) return false;
-      return /\.(jpg|jpeg|png|webp)(\?|$)/i.test(link) || /\/photo|\/image|\/gallery/i.test(link);
+      return /\.(jpg|jpeg|png|webp)(\?|$)/i.test(link) || /\/photo|\/image|\/gallery|\/video|\/thread/i.test(link);
     });
   } finally {
     clearTimeout(timeout);

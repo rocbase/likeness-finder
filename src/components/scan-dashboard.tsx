@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FaceUpload } from "@/components/face-upload";
 import { ConsentPanel } from "@/components/consent-panel";
+import { NsfwScopePanel } from "@/components/nsfw-scope-panel";
 import { ScanControls } from "@/components/scan-controls";
 import { TierSelector } from "@/components/tier-selector";
 import { SeedUrlInput } from "@/components/seed-url-input";
 import { ResultsGrid } from "@/components/results-grid";
-import type { ResultRecord, ScanRecord, ScanStats, ScanTier } from "@/lib/types";
+import type { ResultRecord, ScanRecord, ScanScope, ScanStats, ScanTier } from "@/lib/types";
 import { StatsBar } from "@/components/stats-bar";
 
 interface ServiceStatus {
@@ -22,6 +23,7 @@ interface ServiceStatus {
 
 interface ScanDashboardProps {
   defaultTier?: ScanTier;
+  defaultScope?: ScanScope;
   initialScan?: ScanRecord;
   initialResults?: ResultRecord[];
   initialStats?: ScanStats;
@@ -29,6 +31,7 @@ interface ScanDashboardProps {
 
 export function ScanDashboard({
   defaultTier = "full",
+  defaultScope = "all",
   initialScan,
   initialResults = [],
   initialStats = { total: 0, good: 0, neutral: 0, bad: 0, nsfw: 0, unclassified: 0 },
@@ -38,6 +41,8 @@ export function ScanDashboard({
   const [consent, setConsent] = useState(false);
   const [includeAdult, setIncludeAdult] = useState(false);
   const [adultConsent, setAdultConsent] = useState(false);
+  const scope = initialScan?.scope ?? defaultScope;
+  const isNsfwOnly = scope === "nsfw_only";
   const [tier, setTier] = useState<ScanTier>(initialScan?.tier ?? defaultTier);
   const [seedUrls, setSeedUrls] = useState("");
   const [deepScan, setDeepScan] = useState(true);
@@ -104,8 +109,8 @@ export function ScanDashboard({
       toast.error("Confirm this is your face");
       return;
     }
-    if (includeAdult && !adultConsent) {
-      toast.error("Confirm 18+ for adult index search");
+    if ((includeAdult || isNsfwOnly) && !adultConsent) {
+      toast.error(isNsfwOnly ? "Confirm 18+ for NSFW-only search" : "Confirm 18+ for adult index search");
       return;
     }
 
@@ -114,9 +119,13 @@ export function ScanDashboard({
       const form = new FormData();
       files.forEach((f) => form.append("photos", f));
       form.append("tier", tier);
+      form.append("scope", scope);
       form.append("seedUrls", seedUrls);
-      form.append("mode", tier === "budget" ? "standard" : deepScan ? "deep" : "standard");
-      form.append("includeAdultIndexes", String(includeAdult));
+      form.append(
+        "mode",
+        isNsfwOnly || tier === "budget" ? (isNsfwOnly && tier === "full" ? "deep" : "standard") : deepScan ? "deep" : "standard"
+      );
+      form.append("includeAdultIndexes", String(isNsfwOnly || includeAdult));
       form.append("similarityThreshold", String(threshold));
       form.append("consentAccepted", String(consent));
       form.append("adultConsentAccepted", String(adultConsent));
@@ -158,24 +167,44 @@ export function ScanDashboard({
     <div className="mx-auto max-w-[1600px] px-6 py-6">
       <header className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Likeness Finder</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {isNsfwOnly ? "NSFW Likeness Finder" : "Likeness Finder"}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Find photos of your face online — good, bad, and sensitive
+            {isNsfwOnly
+              ? "Find your face on porn sites and image boards only"
+              : "Find photos of your face online — good, bad, and sensitive"}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant={tier === "budget" ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => router.push("/budget")}
-          >
-            Budget
-          </Button>
+          {!isNsfwOnly && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => router.push("/nsfw")}
+            >
+              NSFW only
+            </Button>
+          )}
+          {!isNsfwOnly && (
+            <Button
+              variant={tier === "budget" ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => router.push("/budget")}
+            >
+              Budget
+            </Button>
+          )}
+          {isNsfwOnly && (
+            <Button variant="outline" size="sm" onClick={() => router.push("/")}>
+              Full search
+            </Button>
+          )}
           <Button variant="outline" onClick={() => router.push("/history")}>
             <History className="mr-2 size-4" />
             History
           </Button>
-          {scan?.status === "completed" && stats.good > 0 && (
+          {!isNsfwOnly && scan?.status === "completed" && stats.good > 0 && (
             <Button variant="outline" onClick={exportGood}>
               <Download className="mr-2 size-4" />
               Export Good
@@ -206,14 +235,23 @@ export function ScanDashboard({
               <CardTitle className="text-base">Consent</CardTitle>
             </CardHeader>
             <CardContent>
-              <ConsentPanel
-                consentAccepted={consent}
-                onConsentChange={setConsent}
-                includeAdult={includeAdult}
-                onIncludeAdultChange={setIncludeAdult}
-                adultConsent={adultConsent}
-                onAdultConsentChange={setAdultConsent}
-              />
+              {isNsfwOnly ? (
+                <NsfwScopePanel
+                  consentAccepted={consent}
+                  onConsentChange={setConsent}
+                  adultConsent={adultConsent}
+                  onAdultConsentChange={setAdultConsent}
+                />
+              ) : (
+                <ConsentPanel
+                  consentAccepted={consent}
+                  onConsentChange={setConsent}
+                  includeAdult={includeAdult}
+                  onIncludeAdultChange={setIncludeAdult}
+                  adultConsent={adultConsent}
+                  onAdultConsentChange={setAdultConsent}
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -231,8 +269,8 @@ export function ScanDashboard({
               <CardTitle className="text-base">Scan options</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {tier === "budget" && (
-                <SeedUrlInput value={seedUrls} onChange={setSeedUrls} />
+              {(tier === "budget" || isNsfwOnly) && (
+                <SeedUrlInput value={seedUrls} onChange={setSeedUrls} nsfwOnly={isNsfwOnly} />
               )}
               <ScanControls
                 tier={tier}
@@ -253,9 +291,11 @@ export function ScanDashboard({
                 )}
                 {isRunning
                   ? "Scanning…"
-                  : tier === "budget"
-                    ? "Start budget scan"
-                    : "Start deep scan"}
+                  : isNsfwOnly
+                    ? "Start NSFW-only scan"
+                    : tier === "budget"
+                      ? "Start budget scan"
+                      : "Start deep scan"}
               </Button>
             </CardContent>
           </Card>
@@ -311,15 +351,21 @@ export function ScanDashboard({
           )}
 
           {results.length > 0 ? (
-            <ResultsGrid results={results} stats={stats} onDismiss={dismissResult} />
+            <ResultsGrid
+              results={results}
+              stats={stats}
+              scope={scan?.scope ?? scope}
+              onDismiss={dismissResult}
+            />
           ) : (
             <Card className="min-h-[400px]">
               <CardContent className="flex flex-col items-center justify-center py-24 text-center">
                 <Search className="mb-4 size-12 text-muted-foreground/40" />
                 <p className="text-lg font-medium">No results yet</p>
                 <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                  Upload 1–3 clear face photos, confirm consent, and start a deep scan to find
-                  your likeness across the web.
+                  {isNsfwOnly
+                    ? "Upload your face, confirm 18+, and scan porn tubes and image boards for your likeness."
+                    : "Upload 1–3 clear face photos, confirm consent, and start a deep scan to find your likeness across the web."}
                 </p>
               </CardContent>
             </Card>

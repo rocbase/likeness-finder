@@ -38,7 +38,10 @@ export default function HistoryPage() {
                 </CardHeader>
                 <CardContent className="flex items-center justify-between">
                   <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    <span>{scan.tier ?? "full"} · {scan.mode} scan</span>
+                    <span>
+                      {scan.scope === "nsfw_only" ? "nsfw-only" : scan.tier ?? "full"} ·{" "}
+                      {scan.mode} scan
+                    </span>
                     {scan.includeAdultIndexes && <span>· adult indexes</span>}
                     <span>
                       · {stats.total} results

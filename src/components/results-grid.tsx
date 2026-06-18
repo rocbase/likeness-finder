@@ -5,17 +5,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResultCard } from "@/components/result-card";
 import { TakedownPanel } from "@/components/takedown-panel";
 import { Button } from "@/components/ui/button";
-import type { ResultRecord, ScanStats } from "@/lib/types";
+import type { ResultRecord, ScanScope, ScanStats } from "@/lib/types";
 import { StatsBar } from "@/components/stats-bar";
 
 interface ResultsGridProps {
   results: ResultRecord[];
   stats: ScanStats;
+  scope?: ScanScope;
   onDismiss?: (id: string) => void;
 }
 
-export function ResultsGrid({ results, stats, onDismiss }: ResultsGridProps) {
-  const [tab, setTab] = useState<string>("all");
+export function ResultsGrid({ results, stats, scope = "all", onDismiss }: ResultsGridProps) {
+  const nsfwOnly = scope === "nsfw_only";
+  const [tab, setTab] = useState<string>(nsfwOnly ? "nsfw" : "all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
@@ -27,14 +29,24 @@ export function ResultsGrid({ results, stats, onDismiss }: ResultsGridProps) {
 
   return (
     <div className="space-y-4">
-      <StatsBar stats={stats} />
+      {!nsfwOnly && <StatsBar stats={stats} />}
+
+      {nsfwOnly && (
+        <p className="text-sm text-destructive">
+          NSFW-only results from adult sites · {stats.nsfw} match{stats.nsfw === 1 ? "" : "es"}
+        </p>
+      )}
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="good">Good</TabsTrigger>
-          <TabsTrigger value="neutral">Neutral</TabsTrigger>
-          <TabsTrigger value="bad">Bad</TabsTrigger>
+          {!nsfwOnly && (
+            <>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="good">Good</TabsTrigger>
+              <TabsTrigger value="neutral">Neutral</TabsTrigger>
+              <TabsTrigger value="bad">Bad</TabsTrigger>
+            </>
+          )}
           <TabsTrigger value="nsfw" className="text-destructive">
             NSFW {stats.nsfw > 0 ? `(${stats.nsfw})` : ""}
           </TabsTrigger>

@@ -95,6 +95,9 @@ function migrateSchema(database: Database.Database) {
   if (!names.has("seed_urls")) {
     database.exec("ALTER TABLE scans ADD COLUMN seed_urls TEXT NOT NULL DEFAULT '[]'");
   }
+  if (!names.has("scope")) {
+    database.exec("ALTER TABLE scans ADD COLUMN scope TEXT NOT NULL DEFAULT 'all'");
+  }
 }
 
 function now() {
@@ -107,6 +110,7 @@ function rowToScan(row: Record<string, unknown>): ScanRecord {
     status: row.status as ScanRecord["status"],
     mode: row.mode as ScanRecord["mode"],
     tier: ((row.tier as string) ?? "full") as ScanRecord["tier"],
+    scope: ((row.scope as string) ?? "all") as ScanRecord["scope"],
     seedUrls: JSON.parse((row.seed_urls as string) ?? "[]"),
     includeAdultIndexes: Boolean(row.include_adult_indexes),
     similarityThreshold: row.similarity_threshold as number,
@@ -158,14 +162,15 @@ export function createScan(input: CreateScanInput, photoPaths: string[]): ScanRe
   database
     .prepare(
       `INSERT INTO scans (
-        id, status, tier, mode, seed_urls, include_adult_indexes, similarity_threshold,
+        id, status, tier, scope, mode, seed_urls, include_adult_indexes, similarity_threshold,
         consent_accepted, adult_consent_accepted, reference_photo_paths,
         progress, progress_message, created_at, updated_at
-      ) VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, 0, 'Waiting to start', ?, ?)`
+      ) VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'Waiting to start', ?, ?)`
     )
     .run(
       id,
       input.tier ?? "full",
+      input.scope ?? "all",
       input.mode,
       JSON.stringify(input.seedUrls ?? []),
       input.includeAdultIndexes ? 1 : 0,

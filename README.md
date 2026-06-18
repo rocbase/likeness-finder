@@ -21,6 +21,17 @@ Uses only free local services plus optional **one** SerpAPI Google Lens call per
 
 Open the budget UI at [/budget](http://localhost:3000/budget) or select **Budget** on the main dashboard.
 
+### NSFW-only mode
+
+Dedicated mode at [/nsfw](http://localhost:3000/nsfw) that:
+
+- **Restricts search** to porn tubes, image boards, and adult forums only
+- **Drops** LinkedIn, Twitter, news, and all non-adult domains
+- **Shows only NSFW** face matches (blurred by default)
+- **Requires 18+** consent
+
+Supported site categories: Pornhub, XVideos, XHamster, 4chan/booru, leak boards, OnlyFans, etc.
+
 ### Full tier (~$65–115/mo)
 
 - FaceCheck API (incl. adult indexes)

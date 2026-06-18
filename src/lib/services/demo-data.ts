@@ -50,6 +50,12 @@ export function getDemoCandidates(includeAdult: boolean): SearchCandidate[] {
 
   return [
     ...base,
+    ...getNsfwOnlyDemoCandidates(),
+  ];
+}
+
+export function getNsfwOnlyDemoCandidates(): SearchCandidate[] {
+  return [
     {
       url: "https://adult-forum.example/leaked-set-991",
       title: "Suspected intimate leak on forum",
@@ -69,6 +75,27 @@ export function getDemoCandidates(includeAdult: boolean): SearchCandidate[] {
       title: "Suggestive image board post",
       domain: "imageboard.example",
       thumbnailUrl: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400",
+      source: "yandex_adult",
+    },
+    {
+      url: "https://pornhub.com/view_video.php?viewkey=demo123",
+      title: "Demo match on tube site",
+      domain: "pornhub.com",
+      thumbnailUrl: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400",
+      source: "facecheck_adult",
+    },
+    {
+      url: "https://imageboard.example/thread/nsfw-face-8812",
+      title: "Image board thread — face match",
+      domain: "imageboard.example",
+      thumbnailUrl: "https://images.unsplash.com/photo-1520813792240-56fc4a3765a7?w=400",
+      source: "deep_crawl_adult",
+    },
+    {
+      url: "https://www.xvideos.com/demo-amateur-tag",
+      title: "XVideos tagged result",
+      domain: "xvideos.com",
+      thumbnailUrl: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=400",
       source: "yandex_adult",
     },
   ];

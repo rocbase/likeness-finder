@@ -9,7 +9,9 @@ import {
   getAppUrl,
 } from "@/lib/env";
 import { runBudgetSearch } from "@/lib/services/budget-search";
-import { getDemoCandidates } from "@/lib/services/demo-data";
+import { getDemoCandidates, getNsfwOnlyDemoCandidates } from "@/lib/services/demo-data";
+import { runNsfwOnlySearch } from "@/lib/services/nsfw-search";
+import { isAdultSite } from "@/lib/adult-sites";
 import { searchFaceCheck } from "@/lib/services/facecheck";
 import { searchGoogleLens } from "@/lib/services/serp-lens";
 import { searchYandexImages } from "@/lib/services/yandex";
@@ -58,7 +60,21 @@ async function phaseSearch(scanId: string, scan: NonNullable<ReturnType<typeof g
   const useDemo =
     allowDemoMode() && !hasFaceCheck() && !hasSerpApi() && !hasYandex();
 
-  if (scan.tier === "budget") {
+  if (scan.scope === "nsfw_only") {
+    updateScan(scanId, {
+      progress: 10,
+      progressMessage: "NSFW-only scan — adult sites & image boards…",
+    });
+    candidates = await runNsfwOnlySearch({
+      scanId,
+      refPhotoFilename: pathBasename(refPath),
+      refBuffer,
+      tier: scan.tier,
+      seedUrls: scan.seedUrls,
+      mode: scan.mode,
+      useDemo,
+    });
+  } else if (scan.tier === "budget") {
     updateScan(scanId, {
       progress: 10,
       progressMessage: "Budget scan — local verify + optional Lens…",
@@ -122,7 +138,11 @@ async function phaseVerifyAndClassify(
     progressMessage: "Verifying face matches…",
   });
 
-  const candidates = candidateCache.get(scanId) ?? getDemoCandidates(scan.includeAdultIndexes);
+  const candidates =
+    candidateCache.get(scanId) ??
+    (scan.scope === "nsfw_only"
+      ? getNsfwOnlyDemoCandidates()
+      : getDemoCandidates(scan.includeAdultIndexes));
   const refPath = scan.referencePhotoPaths[0];
   const total = candidates.length || 1;
 
@@ -149,6 +169,8 @@ async function phaseVerifyAndClassify(
 
     if (similarity < scan.similarityThreshold) continue;
 
+    if (scan.scope === "nsfw_only" && !isAdultSite(candidate.url)) continue;
+
     const resultId = uuidv4();
     const nudenet = thumbBuffer ? await scoreImage(thumbBuffer) : null;
     const thumbPath = thumbBuffer
@@ -161,10 +183,15 @@ async function phaseVerifyAndClassify(
       sourceTitle: candidate.title,
       similarity,
       nudenet,
-      includeAdultContext: scan.includeAdultIndexes,
+      includeAdultContext: scan.scope === "nsfw_only" || scan.includeAdultIndexes,
       thumbnailBase64: thumbBase64,
       budgetMode: scan.tier === "budget",
+      nsfwOnlyMode: scan.scope === "nsfw_only",
     });
+
+    if (scan.scope === "nsfw_only" && classified.classification !== "nsfw" && !classified.blockedCsam) {
+      continue;
+    }
 
     let takedownNotes: string | null = null;
     let takedownPlatform: string | null = null;
@@ -194,7 +221,9 @@ async function phaseVerifyAndClassify(
       classificationReason: classified.reason,
       nsfwType: classified.nsfwType,
       nsfwSeverity: classified.nsfwSeverity,
-      nsfwBlurRequired: classified.classification === "nsfw" && !classified.blockedCsam,
+      nsfwBlurRequired:
+        (classified.classification === "nsfw" || scan.scope === "nsfw_only") &&
+        !classified.blockedCsam,
       nudenetExplicit: nudenet?.explicit ?? null,
       nudenetSuggestive: nudenet?.suggestive ?? null,
       takedownNotes,
@@ -219,7 +248,9 @@ function finalizeScan(scanId: string) {
     progressMessage:
       nsfwCount > 0
         ? `${nsfwCount} NSFW match${nsfwCount === 1 ? "" : "es"} found — review immediately`
-        : "Scan complete",
+        : getScan(scanId)?.scope === "nsfw_only"
+          ? "NSFW-only scan complete — no adult-site matches"
+          : "Scan complete",
     nsfwAlertCount: nsfwCount,
     completedAt: new Date().toISOString(),
     error: null,

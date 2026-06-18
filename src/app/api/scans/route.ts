@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createScan, listScans, updateScanPhotos } from "@/lib/db";
 import { saveReferencePhoto } from "@/lib/storage/photos";
+import { isAdultSite } from "@/lib/adult-sites";
 import { parseSeedUrls } from "@/lib/services/budget-search";
 import type { CreateScanInput } from "@/lib/types";
 
@@ -13,6 +14,7 @@ export async function POST(request: NextRequest) {
   const form = await request.formData();
 
   const tier = (form.get("tier") as string) === "budget" ? "budget" : "full";
+  const scope = (form.get("scope") as string) === "nsfw_only" ? "nsfw_only" : "all";
   const mode = (form.get("mode") as string) === "standard" ? "standard" : "deep";
   const seedUrlsRaw = (form.get("seedUrls") as string) ?? "";
   const includeAdultIndexes = form.get("includeAdultIndexes") === "true";
@@ -27,7 +29,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (includeAdultIndexes && !adultConsentAccepted) {
+  if (scope === "nsfw_only") {
+    if (!adultConsentAccepted) {
+      return NextResponse.json(
+        { error: "NSFW-only search requires 18+ confirmation." },
+        { status: 400 }
+      );
+    }
+  } else if (includeAdultIndexes && !adultConsentAccepted) {
     return NextResponse.json(
       { error: "Adult index search requires 18+ confirmation." },
       { status: 400 }
@@ -42,11 +51,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Maximum 3 reference photos." }, { status: 400 });
   }
 
+  const seedUrls =
+    scope === "nsfw_only"
+      ? parseSeedUrls(seedUrlsRaw).filter((url) => isAdultSite(url))
+      : parseSeedUrls(seedUrlsRaw);
+
   const input: CreateScanInput = {
     tier,
-    mode: tier === "budget" ? "standard" : mode,
-    seedUrls: parseSeedUrls(seedUrlsRaw),
-    includeAdultIndexes,
+    scope,
+    mode: scope === "nsfw_only" && tier === "full" ? "deep" : tier === "budget" ? "standard" : mode,
+    seedUrls,
+    includeAdultIndexes: scope === "nsfw_only" ? true : includeAdultIndexes,
     similarityThreshold: Math.min(0.95, Math.max(0.5, similarityThreshold)),
     consentAccepted,
     adultConsentAccepted,

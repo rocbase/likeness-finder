@@ -19,11 +19,13 @@ export type ScanStatus =
 
 export type ScanMode = "standard" | "deep";
 export type ScanTier = "budget" | "full";
+export type ScanScope = "all" | "nsfw_only";
 
 export interface ScanRecord {
   id: string;
   status: ScanStatus;
   tier: ScanTier;
+  scope: ScanScope;
   mode: ScanMode;
   seedUrls: string[];
   includeAdultIndexes: boolean;
@@ -76,6 +78,7 @@ export interface ScanStats {
 
 export interface CreateScanInput {
   tier: ScanTier;
+  scope: ScanScope;
   mode: ScanMode;
   seedUrls?: string[];
   includeAdultIndexes: boolean;
